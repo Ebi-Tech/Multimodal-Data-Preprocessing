@@ -18,7 +18,6 @@ RANDOM_SEED = 42
 # ---- Paths --------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent      # project root
 DATA_DIR = ROOT / "data"
-FEATURES_DIR = ROOT / "features"
 IMAGES_DIR = ROOT / "images"
 AUDIO_DIR = ROOT / "audio"
 MODELS_DIR = ROOT / "models"
@@ -29,9 +28,7 @@ SOCIAL_PROFILES_CSV = DATA_DIR / "customer_social_profiles.csv"
 TRANSACTIONS_CSV = DATA_DIR / "customer_transactions.csv"
 MERGED_CSV = DATA_DIR / "merged_dataset.csv"
 
-for _d in (DATA_DIR, FEATURES_DIR, IMAGES_DIR, IMAGES_DIR / "samples",
-           IMAGES_DIR / "stranger", AUDIO_DIR, AUDIO_DIR / "samples",
-           AUDIO_DIR / "stranger", MODELS_DIR, PLOTS_DIR):
+for _d in (DATA_DIR, IMAGES_DIR, AUDIO_DIR, MODELS_DIR, PLOTS_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 # ---- Product recommendation classes ------------------------------------
