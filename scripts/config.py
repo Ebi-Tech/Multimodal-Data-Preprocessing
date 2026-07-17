@@ -41,6 +41,9 @@ FACE_CROP = True            # auto-detect & crop the face before feature extract
 REAL_AUG_PER_PHOTO = 8      # augmented variants created per real photo (for training)
 
 # ---- Audio phrases ------------------------------------------------------
+# Defaults for the audio pipeline. The Task 3 notebook (C_audio_voice_model.ipynb)
+# redefines augmentation count and file naming locally since the actual recordings
+# use a simpler naming convention (e.g. David1.wav) than the scheme below.
 AUDIO_PHRASES = ["yes_approve", "confirm_transaction"]
 
 # ---- Audio settings (REAL recordings only) ------------------------------
@@ -48,6 +51,8 @@ AUDIO_PHRASES = ["yes_approve", "confirm_transaction"]
 # images/<member>/<expression>.<ext>). The audio pipeline uses these real
 # clips; it does NOT synthesize voices.
 AUDIO_EXTS = (".wav", ".mp3", ".m4a", ".ogg", ".flac", ".aac")
+# Default augmentation count. The Task 3 notebook (C_audio_voice_model.ipynb)
+# redefines this locally (3 augmentations per clip: pitch, stretch, noise).
 REAL_AUG_PER_CLIP = 8       # augmented variants created per real clip (for training)
 
 # ---- Authorized set (who the system is allowed to admit) ----------------
