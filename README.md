@@ -5,44 +5,31 @@ Group project: user identity and product recommendation system using facial reco
 **Team:** David, Bakhit, Divine, Serein
 
 ## Project structure
-notebooks/
-task1_data_merge.ipynb         Task 1: data merge, EDA, product recommendation model
-C_audio_voice_model.ipynb      Task 3: audio processing, voiceprint verification model
-scripts/
-config.py                      Shared paths and constants
-01_data_merge_eda.py           Standalone script version of the merge pipeline
-predict_product.py             Importable predict_product() for the CLI
-verify_voice.py                Importable verify_voice() for the CLI
-data/
-customer_social_profiles.xlsx  Source dataset
-customer_transactions.xlsx     Source dataset
-merged_dataset.csv             Merged output from Task 1
-models/
-product_recommender.pkl        Trained product recommendation model
-metrics.json                   Product model evaluation metrics
-voice_model.pkl                Trained voiceprint verification model
-voice_metrics.json             Voice model evaluation metrics
-plots/                           EDA and evaluation plots
-audio/                           Team voice recordings (14 clips + 2 stranger)
-audio_features.csv               Extracted audio features (56 samples x 28 features)
-images/                          Facial images (Task 2, in progress)
+task1_data_merge.ipynb        — Task 1: data merge, EDA, product recommendation model
+scripts/config.py             — shared paths and constants
+scripts/01_data_merge_eda.py  — standalone script version of the merge pipeline
+scripts/predict_product.py    — importable predict_product() function for the CLI
+scripts/face_features.py      — shared face detect/augment/feature-extraction helpers (Task 2)
+scripts/02_image_pipeline.py  — Task 2: image pipeline + face recognition model training
+scripts/predict_face.py       — importable predict_face() function for the CLI
+data/                         — source datasets, merged output, image_features.csv (Task 2)
+models/                       — trained model pickles and metrics
+plots/                        — EDA and evaluation plots
+images/<Member>/<neutral|smiling|surprised>.jpg — real team photos (Task 2)
+images/unauthorized/*.jpg     — optional: photo(s) of someone NOT on the team, to test the deny path
+audio/                        — voice recordings (Task 3, in progress)
 
 ## Setup
 
 ```bash
-pip install pandas numpy matplotlib scikit-learn openpyxl joblib librosa
+pip install pandas numpy matplotlib scikit-learn scikit-image opencv-python openpyxl joblib
 ```
 
 ## How to run
 
-**Task 1 notebook (data merge + product model):**
+**Task 1 notebook:**
 ```bash
-jupyter notebook notebooks/task1_data_merge.ipynb
-```
-
-**Task 3 notebook (audio pipeline + voice model):**
-```bash
-jupyter notebook notebooks/C_audio_voice_model.ipynb
+jupyter notebook task1_data_merge.ipynb
 ```
 
 **Task 1 script (standalone):**
@@ -50,14 +37,29 @@ jupyter notebook notebooks/C_audio_voice_model.ipynb
 python scripts/01_data_merge_eda.py
 ```
 
-**Product prediction (import for CLI):**
+**Product prediction (import in CLI):**
 ```python
 from scripts.predict_product import predict_product
 result = predict_product({"engagement_score": 75, "purchase_interest_score": 3.0, ...})
 ```
 
-**Voice verification (import for CLI):**
+**Task 2 — image pipeline + face recognition:**
+
+Every team member drops their own 3 real photos in `images/<Member>/`:
+`neutral.jpg`, `smiling.jpg`, `surprised.jpg` (member names come from
+`config.TEAM_MEMBERS`). Then:
+```bash
+python scripts/02_image_pipeline.py
+```
+This loads all members' photos, displays a grid (`plots/image_grid.png`),
+applies 4 augmentations per photo (rotation, flip, grayscale, blur),
+extracts color-histogram + HOG features into `data/image_features.csv`,
+trains a RandomForest face-recognition model, evaluates it (accuracy,
+macro-F1, `plots/face_confusion_matrix.png`), and saves it to
+`models/face_recognition_model.pkl`.
+
+**Face prediction (import in CLI):**
 ```python
-from scripts.verify_voice import verify_voice
-label, confidence = verify_voice("audio/Bakhit1.wav")
+from scripts.predict_face import predict_face
+predict_face("images/David/neutral.jpg")  # -> "David" or "unauthorized"
 ```
