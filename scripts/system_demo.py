@@ -12,6 +12,9 @@ Usage:
     python scripts/system_demo.py                              (run full demo)
     python scripts/system_demo.py <face_image> <voice_audio>   (single test)
 """
+import warnings
+warnings.filterwarnings("ignore")
+
 import sys
 import os
 
