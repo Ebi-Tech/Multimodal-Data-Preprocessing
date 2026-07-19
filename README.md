@@ -30,7 +30,7 @@ images/                          Facial images (Task 2, in progress)
 ## Setup
 
 ```bash
-pip install pandas numpy matplotlib scikit-learn openpyxl joblib librosa
+pip install pandas numpy matplotlib scikit-learn==1.6.1 openpyxl joblib librosa
 ```
 
 ## How to run
