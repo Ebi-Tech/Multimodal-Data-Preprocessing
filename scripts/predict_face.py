@@ -1,84 +1,103 @@
 """
 predict_face.py
-================
-The single importable entry point Task 2 exposes for the rest of the team's
-command-line app. Loads the face-recognition model trained in
-scripts/02_image_pipeline.py (models/face_recognition_model.pkl) and turns
-a photo into a predicted team-member name, or "unauthorized" if the model
-isn't confident it's anyone on the team.
+===============
+Importable facial recognition for the CLI app.
 
-Usage
------
+Loads the trained face model from models/face_recognition_model.pkl
+and exposes a single function:
+
     from scripts.predict_face import predict_face
-    predict_face("images/David/neutral.jpg")          # -> "David"
-    predict_face("images/unauthorized/intruder.jpg")  # -> "unauthorized"
+    label, confidence = predict_face("images/David/neutral.jpg")
 
-No retraining happens on import: the pickled bundle (model + label encoder +
-decision threshold) is loaded once and reused.
+Returns the predicted team member name if confidence exceeds the
+threshold, otherwise returns "unauthorized".
 """
-from pathlib import Path
 import cv2
-from joblib import load
+import numpy as np
+import pandas as pd
+import joblib
+from pathlib import Path
+from skimage.feature import hog
 
-try:
-    from scripts.face_features import extract_features
-except ImportError:
-    from face_features import extract_features
+_ROOT = Path(__file__).resolve().parent.parent
+_MODEL_PATH = _ROOT / "models" / "face_recognition_model.pkl"
+_FACE_SIZE = (128, 128)
+_THRESHOLD = 0.55
 
-_BUNDLE_PATH = Path(__file__).resolve().parents[1] / "models" / "face_recognition_model.pkl"
 _bundle = None
 
 
 def _get_bundle():
-    """Lazy-load the model bundle so importing this module is cheap and
-    side-effect free."""
     global _bundle
     if _bundle is None:
-        if not _BUNDLE_PATH.exists():
-            raise FileNotFoundError(
-                f"{_BUNDLE_PATH} not found. Run scripts/02_image_pipeline.py "
-                "first to train and save the face-recognition model.")
-        _bundle = load(_BUNDLE_PATH)
+        _bundle = joblib.load(_MODEL_PATH)
     return _bundle
 
 
-def predict_face(image_path) -> str:
-    """Predict which team member a photo belongs to.
+def _detect_and_crop(img_rgb):
+    cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    )
+    gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+    faces = cascade.detectMultiScale(
+        gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60)
+    )
+    if len(faces) == 0:
+        face = img_rgb
+    else:
+        x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+        face = img_rgb[y:y + h, x:x + w]
+    return cv2.resize(face, _FACE_SIZE)
 
-    Returns the member's name if the model's top prediction has confidence
-    >= the trained threshold, otherwise returns "unauthorized" — this is
-    what lets the CLI deny access to a face the model wasn't trained on.
+
+def _extract_features(img_rgb):
+    hist_parts = []
+    for ch in range(3):
+        h = cv2.calcHist([img_rgb], [ch], None, [32], [0, 256])
+        h = cv2.normalize(h, h).flatten()
+        hist_parts.append(h)
+    hist_feat = np.concatenate(hist_parts)
+
+    gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+    hog_feat = hog(
+        gray, orientations=9, pixels_per_cell=(16, 16),
+        cells_per_block=(2, 2), feature_vector=True
+    )
+    return np.concatenate([hist_feat, hog_feat]).astype(np.float32)
+
+
+def predict_face(image_path, threshold=_THRESHOLD):
     """
-    b = _get_bundle()
-    img = cv2.imread(str(image_path))
-    if img is None:
-        raise FileNotFoundError(f"could not read image: {image_path}")
+    Identify a person from a facial image.
 
-    feat = extract_features(img, face_crop=b.get("face_crop", True)).reshape(1, -1)
-    proba = b["model"].predict_proba(feat)[0]
-    top_idx = int(proba.argmax())
-    top_prob = float(proba[top_idx])
+    Returns (predicted_member, confidence) if confidence > threshold,
+    otherwise ("unauthorized", confidence).
+    """
+    bundle = _get_bundle()
+    model = bundle["model"]
+    feature_cols = bundle["features"]
 
-    if top_prob < b["threshold"]:
-        return "unauthorized"
-    return str(b["label_encoder"].inverse_transform([top_idx])[0])
+    img_bgr = cv2.imread(str(image_path))
+    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    cropped = _detect_and_crop(img_rgb)
+    feat = _extract_features(cropped)
+    x_row = pd.DataFrame([feat], columns=feature_cols)
 
+    proba = model.predict_proba(x_row)[0]
+    classes = model.classes_
+    best_idx = np.argmax(proba)
+    confidence = proba[best_idx]
+    predicted = classes[best_idx]
 
-def predict_face_proba(image_path) -> dict:
-    """Return the full class-probability distribution as {member: probability}."""
-    b = _get_bundle()
-    img = cv2.imread(str(image_path))
-    if img is None:
-        raise FileNotFoundError(f"could not read image: {image_path}")
-
-    feat = extract_features(img, face_crop=b.get("face_crop", True)).reshape(1, -1)
-    proba = b["model"].predict_proba(feat)[0]
-    return {cls: round(float(p), 4) for cls, p in zip(b["label_encoder"].classes_, proba)}
+    if confidence > threshold:
+        return predicted, confidence
+    return "unauthorized", confidence
 
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        sys.exit("usage: python scripts/predict_face.py <image_path>")
-    print("predicted:", predict_face(sys.argv[1]))
-    print("proba    :", predict_face_proba(sys.argv[1]))
+        print("Usage: python scripts/predict_face.py <path_to_image>")
+        sys.exit(1)
+    label, conf = predict_face(sys.argv[1])
+    print(f"predicted={label}, confidence={conf:.3f}")
